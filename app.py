@@ -419,7 +419,7 @@ if prompt := st.chat_input("Posez votre question..."):
             ] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
             
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo", # Vous pouvez changer pour un autre modèle si besoin
+                model="gpt-4o-mini", # Vous pouvez changer pour un autre modèle si besoin (gpt-4o-mini est moins couteux)
                 messages=messages_to_send
             )
             assistant_response = response.choices[0].message.content
