@@ -2,6 +2,14 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
+import openai # Importation de la bibliothèque OpenAI
+import os
+from dotenv import load_dotenv
+
+# Load environment variables (for local development)
+load_dotenv()
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY') or st.secrets.get('OPENAI_API_KEY')
 
 # Set page configuration
 st.set_page_config(
@@ -366,7 +374,62 @@ st.markdown("""
 - **Barres d'erreur** : Intervalles de confiance à 95%
 """)
 
+# Section Chatbot (NOUVELLE SECTION)
 st.markdown("---")
-st.markdown("*Application développée avec Streamlit et Plotly*")
+st.markdown("### 💬 Chatbot - Analyse des données")
+st.markdown("Posez-moi une question sur les données des effets indésirables du Xeljanz.")
 
+# Initialiser la connexion à l'API OpenAI
+client = openai.OpenAI(api_key=OPENAI_API_KEY)  #st.secrets.openai_api_key)
+
+# Initialiser l'historique de la conversation dans la session
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Afficher les messages de l'historique
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# Créer un prompt avec le contexte des données
+# On utilise la version de la DataFrame sans filtres pour donner un contexte complet
+data_context = df.to_string()
+system_prompt = (
+    "Tu es un assistant expert en analyse de données médicales pour le médicament Xeljanz. "
+    "Réponds aux questions de l'utilisateur de manière concise et précise, en te basant exclusivement "
+    "sur les données fournies ci-dessous. Si une information n'est pas présente, précise-le. "
+    "Les colonnes sont : Effet indésirable, Groupe (dosage), TI (Taux d'Incidence), IC95_min et IC95_max "
+    "(intervalle de confiance à 95%). "
+    "Voici les données : \n\n"
+    f"{data_context}"
+)
+
+# Accepter l'entrée de l'utilisateur
+if prompt := st.chat_input("Posez votre question..."):
+    # Ajouter le message de l'utilisateur à l'historique
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # Appeler l'API OpenAI pour obtenir une réponse
+    with st.chat_message("assistant"):
+        with st.spinner("Réflexion en cours..."):
+            messages_to_send = [
+                {"role": "system", "content": system_prompt}
+            ] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
+            
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo", # Vous pouvez changer pour un autre modèle si besoin
+                messages=messages_to_send
+            )
+            assistant_response = response.choices[0].message.content
+            st.markdown(assistant_response)
+    
+    # Ajouter la réponse de l'assistant à l'historique
+    st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+
+
+
+st.markdown("---")
+# st.markdown("*Application développée avec Streamlit et Plotly*")
 st.markdown("*Jasmine kadji*")
