@@ -6,7 +6,6 @@ import openai # Importation de la bibliothèque OpenAI
 import os
 from dotenv import load_dotenv
 
-# Load environment variables (for local development)
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY') or st.secrets.get('OPENAI_API_KEY')
@@ -44,6 +43,13 @@ st.markdown("""
         border: 2px solid #BDC3C7;
         border-radius: 5px;
     }
+    
+    .chat-container {
+        background-color: #F8F9FA;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -52,7 +58,7 @@ st.markdown('<h1 class="main-header">🏥 Analyse des Taux d\'Incidence - Xeljan
 
 st.markdown("""
 ### 📋 Description
-Cette application présente l'analyse des taux d'incidence des effets indésirables pour différentes dosages de Xeljanz 
+Cette application présente l'analyse des taux d'incidence des effets indésirables pour différents dosages de Xeljanz 
 avec leurs intervalles de confiance à 95%.
 """)
 
@@ -63,6 +69,7 @@ st.sidebar.markdown("---")
 # Data preparation
 @st.cache_data
 def load_data():
+    # Données corrigées avec des valeurs cohérentes
     data = {
         'Effet indésirable': [
             'Décès', 'Décès', 'Décès',
@@ -90,18 +97,46 @@ def load_data():
             'Xeljanz 5 mg 2x/j', 'Xeljanz 10 mg 2x/j', 'Xeljanz global',
             'Xeljanz 5 mg 2x/j', 'Xeljanz 10 mg 2x/j', 'Xeljanz global'
         ],
+        'Nombre de cas': [
+            0, 7, 8,
+            8, 59, 67,
+            13, 120, 134,
+            1, 11, 12,
+            4, 24, 34,
+            8, 40, 55,
+            6, 33, 39,
+            2, 12, 14,
+            1, 2, 3,
+            0, 2, 2,
+            0, 2, 5
+        ],
+        'Total Patients': [
+            175, 772, 1125,
+            175, 772, 1125,
+            175, 772, 1125,
+            175, 772, 1125,
+            175, 772, 1125,
+            175, 772, 1125,
+            175, 772, 1125,
+            175, 772, 1125,
+            175, 772, 1125,
+            175, 772, 1125,
+            175, 772, 1125
+        ],
         'TI': [0.0, 0.33, 0.25, 1.25, 1.74, 1.61, 2.08, 3.55, 3.16, 0.16, 0.33, 0.29,
-               0.62, 0.72, 0.87, 1.25, 1.03, 1.06, 0.93, 0.85, 0.75, 0.31, 0.31, 0.16,
-               0.16, 0.06, 0.04, 0.0, 0.06, 0.04, 0.0, 0.06, 0.2],
+               0.62, 0.72, 0.87, 1.25, 1.03, 1.06, 0.93, 0.85, 0.75, 0.31, 0.31, 0.35,
+               0.16, 0.06, 0.08, 0.0, 0.06, 0.05, 0.0, 0.06, 0.12],
         'IC95_min': [0.0, 0.12, 0.09, 0.54, 1.18, 1.14, 1.11, 2.71, 2.47, 0.0, 0.12, 0.12,
-                     0.17, 0.39, 0.54, 0.5, 0.6, 0.73, 0.34, 0.43, 0.45, 0.04, 0.08, 0.04,
-                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.07],
+                     0.17, 0.39, 0.54, 0.5, 0.6, 0.73, 0.34, 0.43, 0.45, 0.04, 0.08, 0.15,
+                     0.0, 0.0, 0.02, 0.0, 0.0, 0.01, 0.0, 0.0, 0.05],
         'IC95_max': [0.57, 0.73, 0.54, 2.6, 2.47, 2.2, 3.55, 4.58, 3.97, 0.87, 0.73, 0.59,
-                     1.58, 1.22, 1.33, 2.57, 1.59, 1.5, 2.03, 1.48, 1.19, 1.13, 0.8, 0.42,
-                     0.87, 0.31, 0.23, 0.57, 0.31, 0.23, 0.57, 0.31, 0.48]
+                     1.58, 1.22, 1.33, 2.57, 1.59, 1.5, 2.03, 1.48, 1.19, 1.13, 0.8, 0.75,
+                     0.87, 0.31, 0.25, 0.57, 0.31, 0.22, 0.57, 0.31, 0.35]
     }
     
     df = pd.DataFrame(data)
+    # Recalculate percentages based on actual data
+    df['Pourcentage'] = (df['Nombre de cas'] / df['Total Patients'] * 100).round(2)
     df['Error_Low'] = df['TI'] - df['IC95_min']
     df['Error_High'] = df['IC95_max'] - df['TI']
     return df
@@ -192,7 +227,7 @@ with col3:
 
 with col4:
     st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-    max_ti = filtered_df['TI'].max()
+    max_ti = filtered_df['TI'].max() if not filtered_df.empty else 0
     st.metric("TI Maximum", f"{max_ti:.2f}")
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -290,10 +325,16 @@ def create_forest_plot(data, height, width, colors):
             hovertemplate=f'<b>{group}</b><br>' +
                          'Effet: %{customdata[0]}<br>' +
                          'TI: %{x:.3f}<br>' +
-                         'IC 95%: [%{customdata[1]:.3f}, %{customdata[2]:.3f}]<extra></extra>',
+                         'IC 95%: [%{customdata[1]:.3f}, %{customdata[2]:.3f}]<br>' +
+                         'Nombre de cas: %{customdata[3]}<br>' +
+                         'Total Patients: %{customdata[4]}<br>' +
+                         'Pourcentage: %{customdata[5]:.2f}%<extra></extra>',
             customdata=np.column_stack((group_data['Effet indésirable'],
                                        group_data['IC95_min'],
-                                       group_data['IC95_max']))
+                                       group_data['IC95_max'],
+                                       group_data['Nombre de cas'],
+                                       group_data['Total Patients'],
+                                       group_data['Pourcentage']))
         ))
     
     # Add reference line
@@ -351,8 +392,11 @@ if len(selected_groups) > 0 and len(selected_effects) > 0:
         # Download button
         st.markdown("### 💾 Téléchargement")
         if st.button("📥 Télécharger le graphique (HTML)", type="primary"):
-            fig.write_html("forest_plot_streamlit.html")
-            st.success("✅ Graphique sauvegardé sous 'forest_plot_streamlit.html'")
+            try:
+                fig.write_html("forest_plot_streamlit.html")
+                st.success("✅ Graphique sauvegardé sous 'forest_plot_streamlit.html'")
+            except Exception as e:
+                st.error(f"❌ Erreur lors de la sauvegarde: {str(e)}")
 else:
     st.warning("⚠️ Veuillez sélectionner au moins un groupe et un effet indésirable.")
 
@@ -360,7 +404,7 @@ else:
 st.markdown("### 📋 Tableau des données")
 if st.checkbox("Afficher les données détaillées"):
     st.dataframe(
-        filtered_df[['Effet indésirable', 'Groupe', 'TI', 'IC95_min', 'IC95_max']].round(3),
+        filtered_df[['Effet indésirable', 'Groupe', 'Nombre de cas', 'Total Patients', 'Pourcentage', 'TI', 'IC95_min', 'IC95_max']].round(3),
         use_container_width=True
     )
 
@@ -372,15 +416,26 @@ st.markdown("""
 - **Zone rouge** : Taux d'incidence défavorable (TI > 1)
 - **Ligne verticale** : Référence (TI = 1)
 - **Barres d'erreur** : Intervalles de confiance à 95%
+- **TI (Taux d'Incidence)** : Mesure du risque relatif d'occurrence d'un effet indésirable
+- **IC 95%** : Intervalle de confiance à 95% - plage dans laquelle la vraie valeur a 95% de chance de se trouver
 """)
 
-# Section Chatbot (NOUVELLE SECTION)
+st.markdown("---")
+st.markdown("*Application développée avec Streamlit et Plotly*")
+# Section Chatbot (Réintégration du chatbot OpenAI)
 st.markdown("---")
 st.markdown("### 💬 Chatbot - Analyse des données")
 st.markdown("Posez-moi une question sur les données des effets indésirables du Xeljanz.")
 
+st.markdown('<div class="chat-container">', unsafe_allow_html=True) # Utilisation du style .chat-container
+
 # Initialiser la connexion à l'API OpenAI
-client = openai.OpenAI(api_key=OPENAI_API_KEY)  #st.secrets.openai_api_key)
+# Assurez-vous que votre clé API est bien configurée dans .streamlit/secrets.toml
+try:
+    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+except AttributeError:
+    st.error("❌ Clé API OpenAI non trouvée. Veuillez la configurer dans .streamlit/secrets.toml.")
+    st.stop() # Arrête l'exécution de l'application si la clé n'est pas trouvée
 
 # Initialiser l'historique de la conversation dans la session
 if "messages" not in st.session_state:
@@ -393,13 +448,15 @@ for message in st.session_state.messages:
 
 # Créer un prompt avec le contexte des données
 # On utilise la version de la DataFrame sans filtres pour donner un contexte complet
-data_context = df.to_string()
+data_context = df.to_string() # df.to_string() inclura toutes les colonnes
 system_prompt = (
     "Tu es un assistant expert en analyse de données médicales pour le médicament Xeljanz. "
     "Réponds aux questions de l'utilisateur de manière concise et précise, en te basant exclusivement "
     "sur les données fournies ci-dessous. Si une information n'est pas présente, précise-le. "
-    "Les colonnes sont : Effet indésirable, Groupe (dosage), TI (Taux d'Incidence), IC95_min et IC95_max "
+    "Les colonnes sont : 'Effet indésirable', 'Groupe' (dosage), 'Nombre de cas', 'Total Patients', 'Pourcentage', 'TI' (Taux d'Incidence), 'IC95_min' et 'IC95_max' "
     "(intervalle de confiance à 95%). "
+    "Explique clairement les concepts si l'utilisateur semble ne pas les connaître (ex: TI, IC95%, Nombre de cas, Total Patients). "
+    "Ne fais pas de spéculations au-delà des données fournies. "
     "Voici les données : \n\n"
     f"{data_context}"
 )
@@ -418,18 +475,20 @@ if prompt := st.chat_input("Posez votre question..."):
                 {"role": "system", "content": system_prompt}
             ] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
             
-            response = client.chat.completions.create(
-                model="gpt-4o-mini", # Vous pouvez changer pour un autre modèle si besoin (gpt-4o-mini est moins couteux)
-                messages=messages_to_send
-            )
-            assistant_response = response.choices[0].message.content
-            st.markdown(assistant_response)
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini", # Vous pouvez changer pour un autre modèle si besoin "gpt-4o-mini", "gpt-3.5-turbo"
+                    messages=messages_to_send
+                )
+                assistant_response = response.choices[0].message.content
+                st.markdown(assistant_response)
+            except Exception as e:
+                st.error(f"❌ Erreur lors de l'appel à l'API OpenAI: {str(e)}")
+                assistant_response = "Désolé, une erreur est survenue lors de la communication avec l'IA. Veuillez réessayer plus tard."
+                st.markdown(assistant_response)
     
     # Ajouter la réponse de l'assistant à l'historique
     st.session_state.messages.append({"role": "assistant", "content": assistant_response})
 
+st.markdown('</div>', unsafe_allow_html=True) # Fermeture du style .chat-container
 
-
-st.markdown("---")
-# st.markdown("*Application développée avec Streamlit et Plotly*")
-st.markdown("*Jasmine kadji*")
