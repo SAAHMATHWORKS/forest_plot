@@ -368,3 +368,5 @@ st.markdown("""
 
 st.markdown("---")
 st.markdown("*Application développée avec Streamlit et Plotly*")
+
+st.markdown("*Jasmine kadji*")
