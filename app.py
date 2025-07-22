@@ -421,7 +421,7 @@ st.markdown("""
 """)
 
 st.markdown("---")
-st.markdown("*Application développée avec Streamlit et Plotly*")
+st.markdown("*Jasmine kadji*")
 # Section Chatbot (Réintégration du chatbot OpenAI)
 st.markdown("---")
 st.markdown("### 💬 Chatbot - Analyse des données")
